@@ -167,3 +167,61 @@ if __name__ == "__main__":
     except DownloadError as e:
         print(f"\nDownload failed: {e}")
         sys.exit(1)
+        
+def download_video_segment(youtube_url: str, start: float, end: float, output_path: str) -> str:
+    """
+    Downloads only the specified time range of a YouTube video (not the
+    full video), using yt-dlp's download-sections feature combined with
+    ffmpeg for precise trimming.
+
+    Args:
+        youtube_url: Full YouTube video URL.
+        start: Clip start time in seconds.
+        end: Clip end time in seconds.
+        output_path: Where to save the resulting video file (e.g. .mp4).
+
+    Returns:
+        The output_path, on success.
+
+    Raises:
+        DownloadError: on failure.
+    """
+    import yt_dlp
+
+    _check_ffmpeg_available()
+
+    def time_str(seconds: float) -> str:
+        # yt-dlp section syntax wants HH:MM:SS
+        h = int(seconds // 3600)
+        m = int((seconds % 3600) // 60)
+        s = seconds % 60
+        return f"{h:02d}:{m:02d}:{s:06.3f}"
+
+    section = f"*{time_str(start)}-{time_str(end)}"
+
+    ydl_opts = {
+        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+        "outtmpl": output_path.replace(".mp4", ".%(ext)s"),
+        "download_ranges": yt_dlp.utils.download_range_func(None, [(start, end)]),
+        "force_keyframes_at_cuts": True,
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "merge_output_format": "mp4",
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([youtube_url])
+    except yt_dlp.utils.DownloadError as e:
+        raise DownloadError(f"Failed to download video segment [{start}-{end}]: {e}")
+
+    if not Path(output_path).exists():
+        # yt-dlp sometimes names the output slightly differently after merging
+        candidates = list(Path(output_path).parent.glob(Path(output_path).stem + ".*"))
+        if candidates:
+            candidates[0].rename(output_path)
+        else:
+            raise DownloadError(f"Expected output file not found: {output_path}")
+
+    return output_path
