@@ -4,7 +4,7 @@
 
 ClipMind AI takes a long-form YouTube video (podcasts, interviews, lectures, talks) and automatically produces ready-to-post vertical Shorts — complete with active-speaker-tracking crop and burned-in captions — by understanding *what's being discussed* and *where the best hook-to-payoff moment lives* within each topic, rather than just scoring random sentences.
 
-> Built as a B.Tech CSE final-year major project. Fully working end-to-end pipeline, running on free-tier tools only (no paid APIs required).
+> A fully working end-to-end pipeline, running on free-tier tools only (no paid APIs required).
 
 ---
 
@@ -126,7 +126,7 @@ python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --top_n 5
 
 ## Known limitations (honest, on purpose)
 
-This is an actively developed academic project, not a finished commercial product. Current known limitations:
+This is an actively developed personal project, not a finished commercial product. Current known limitations:
 
 - **Transcription accuracy drops** on non-English audio with heavy background music — a documented, known Whisper behavior, not specific to this project.
 - **Active speaker detection** can lose tracking briefly on steep downward face angles (mitigated with gap-filling, not eliminated).
@@ -148,4 +148,4 @@ These are documented deliberately, not hidden — they reflect real, working eng
 
 ## Author
 
-Built solo as a B.Tech CSE final-year major project. Developed iteratively with detailed devlogs documenting design decisions, bugs found, and fixes applied throughout.
+Built solo, developed iteratively with detailed devlogs documenting design decisions, bugs found, and fixes applied throughout.
