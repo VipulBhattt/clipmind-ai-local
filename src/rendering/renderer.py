@@ -1,8 +1,10 @@
 """
 renderer.py
 Takes ranked clip windows and the source YouTube video, downloads each
-clip's video segment, and reframes it to 9:16 vertical (simple center-crop
-for now — smart face-tracking crop is a planned future upgrade).
+clip's video segment, and reframes it to 9:16 vertical, dynamically
+following the active speaker (instant cuts, no smoothing) using the
+timeline produced by speaker_detector.py. Falls back to plain center-crop
+if speaker detection fails or no timeline is available.
 """
 
 import sys
@@ -12,6 +14,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))  # allow importing sibling modules
 from ingestion.downloader import download_video_segment, DownloadError, _check_ffmpeg_available
+from rendering.speaker_detector import analyze_video, SpeakerDetectionError
 
 
 class RenderError(Exception):
@@ -36,21 +39,22 @@ def _get_video_dimensions(video_path: str) -> tuple:
     return width, height
 
 
-def _center_crop_to_vertical(input_path: str, output_path: str, target_ratio: float = 9 / 16) -> str:
-    """
-    Crops a landscape video to a vertical (9:16) aspect ratio, centered
-    horizontally. This is a placeholder for smart, face-tracked cropping
-    planned for a future session.
-    """
-    width, height = _get_video_dimensions(input_path)
+def _target_crop_dimensions(width: int, height: int, target_ratio: float = 9 / 16) -> tuple:
+    """Returns (crop_width, crop_height) for a 9:16 crop of a given source frame."""
     target_width = int(height * target_ratio)
+    if target_width <= width:
+        return target_width, height
+    target_height = int(width / target_ratio)
+    return width, target_height
 
-    if target_width > width:
-        # Video is already narrower than target — crop height instead
-        target_height = int(width / target_ratio)
-        crop_filter = f"crop={width}:{target_height}:0:(ih-{target_height})/2"
-    else:
-        crop_filter = f"crop={target_width}:{height}:(iw-{target_width})/2:0"
+
+def _center_crop_to_vertical(input_path: str, output_path: str, target_ratio: float = 9 / 16) -> str:
+    """Fallback: plain center-crop, used if speaker detection fails entirely."""
+    width, height = _get_video_dimensions(input_path)
+    crop_width, crop_height = _target_crop_dimensions(width, height, target_ratio)
+    x = (width - crop_width) // 2
+
+    crop_filter = f"crop={crop_width}:{crop_height}:{x}:0"
 
     try:
         subprocess.run(
@@ -64,23 +68,74 @@ def _center_crop_to_vertical(input_path: str, output_path: str, target_ratio: fl
             check=True, capture_output=True, text=True,
         )
     except subprocess.CalledProcessError as e:
-        raise RenderError(f"ffmpeg crop failed: {e.stderr}")
+        raise RenderError(f"ffmpeg center-crop failed: {e.stderr}")
+
+    return output_path
+
+
+def _center_x_to_crop_x(center_x_norm: float, frame_width: int, crop_width: int) -> int:
+    """Converts a normalized (0-1) face center X into a pixel crop X position, clamped to frame bounds."""
+    pixel_center = center_x_norm * frame_width
+    crop_x = int(pixel_center - crop_width / 2)
+    crop_x = max(0, min(crop_x, frame_width - crop_width))
+    return crop_x
+
+
+def _build_dynamic_crop_filter(timeline: list, frame_width: int, frame_height: int,
+                                crop_width: int, crop_height: int) -> str:
+    """
+    Builds an ffmpeg crop filter with a time-varying x position that jumps
+    (instant cut, no smoothing) to follow the active speaker according to
+    the given timeline.
+    """
+    default_x = (frame_width - crop_width) // 2
+
+    segments = []
+    for entry in timeline:
+        if entry.get("no_detection") or entry.get("face_center_x") is None:
+            x_pos = default_x
+        else:
+            x_pos = _center_x_to_crop_x(entry["face_center_x"], frame_width, crop_width)
+        segments.append((entry["start"], entry["end"], x_pos))
+
+    if not segments:
+        return f"crop={crop_width}:{crop_height}:{default_x}:0"
+
+    expr = str(segments[-1][2])
+    for start, end, x_pos in reversed(segments[:-1]):
+        expr = f"if(lt(t\\,{end})\\,{x_pos}\\,{expr})"
+
+    return f"crop={crop_width}:{crop_height}:{expr}:0"
+
+
+def _dynamic_crop_to_vertical(input_path: str, output_path: str, timeline: list,
+                               target_ratio: float = 9 / 16) -> str:
+    width, height = _get_video_dimensions(input_path)
+    crop_width, crop_height = _target_crop_dimensions(width, height, target_ratio)
+    crop_filter = _build_dynamic_crop_filter(timeline, width, height, crop_width, crop_height)
+
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", input_path,
+                "-vf", crop_filter,
+                "-c:a", "copy",
+                output_path,
+            ],
+            check=True, capture_output=True, text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise RenderError(f"ffmpeg dynamic crop failed: {e.stderr}")
 
     return output_path
 
 
 def render_clips(ranked_clips_path: str, youtube_url: str, output_dir: str = None, top_n: int = 5) -> dict:
     """
-    Renders the top N ranked clips into vertical, cropped MP4 files.
-
-    Args:
-        ranked_clips_path: path to final_clips_ranked.json
-        youtube_url: original source video URL (needed to re-fetch video bytes)
-        output_dir: where to save rendered clips (defaults to same folder as ranked_clips_path)
-        top_n: how many top-ranked clips to render
-
-    Returns:
-        dict with keys: rendered_clips (list of output paths + metadata), output_dir
+    Renders the top N ranked clips into vertical MP4 files, with the crop
+    dynamically following the active speaker (instant cuts on speaker change).
+    Falls back to center-crop if speaker detection fails for a given clip.
     """
     _check_ffmpeg_available()
 
@@ -113,9 +168,22 @@ def render_clips(ranked_clips_path: str, youtube_url: str, output_dir: str = Non
             print(f"    Skipped — download failed: {e}", flush=True)
             continue
 
-        print(f"    Cropping to vertical 9:16...", flush=True)
+        print(f"    Analyzing active speaker position...", flush=True)
+        crop_mode = "dynamic"
+        timeline = None
         try:
-            _center_crop_to_vertical(str(raw_path), str(cropped_path))
+            speaker_result = analyze_video(str(raw_path))
+            timeline = speaker_result["timeline"]
+        except SpeakerDetectionError as e:
+            print(f"    Speaker detection failed ({e}) — falling back to center-crop.", flush=True)
+            crop_mode = "center"
+
+        print(f"    Cropping to vertical 9:16 ({crop_mode})...", flush=True)
+        try:
+            if crop_mode == "dynamic":
+                _dynamic_crop_to_vertical(str(raw_path), str(cropped_path), timeline)
+            else:
+                _center_crop_to_vertical(str(raw_path), str(cropped_path))
         except RenderError as e:
             print(f"    Skipped — crop failed: {e}", flush=True)
             continue
@@ -127,6 +195,7 @@ def render_clips(ranked_clips_path: str, youtube_url: str, output_dir: str = Non
             "end": clip["end"],
             "rank_score": clip.get("rank_score"),
             "hook_line": clip.get("hook_line"),
+            "crop_mode": crop_mode,
             "output_path": str(cropped_path),
         })
         print(f"    Done: {cropped_path}\n", flush=True)
@@ -154,6 +223,8 @@ if __name__ == "__main__":
     try:
         result = render_clips(ranked_path, url, top_n=n)
         print(f"\nRendered {len(result['rendered_clips'])} clips to: {result['output_dir']}")
+        for c in result["rendered_clips"]:
+            print(f"  rank {c['rank']} | crop_mode={c['crop_mode']} | {c['output_path']}")
     except RenderError as e:
         print(f"\nRendering failed: {e}")
         sys.exit(1)
