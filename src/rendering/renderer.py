@@ -15,6 +15,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))  # allow importing sibling modules
 from ingestion.downloader import download_video_segment, DownloadError, _check_ffmpeg_available
 from rendering.speaker_detector import analyze_video, SpeakerDetectionError
+from rendering.caption_burner import add_captions_to_clip, CaptionError
+
+
+
 
 
 class RenderError(Exception):
@@ -131,7 +135,8 @@ def _dynamic_crop_to_vertical(input_path: str, output_path: str, timeline: list,
     return output_path
 
 
-def render_clips(ranked_clips_path: str, youtube_url: str, output_dir: str = None, top_n: int = 5) -> dict:
+def render_clips(ranked_clips_path: str, youtube_url: str, transcript_path: str,
+                  output_dir: str = None, top_n: int = 5) -> dict:
     """
     Renders the top N ranked clips into vertical MP4 files, with the crop
     dynamically following the active speaker (instant cuts on speaker change).
@@ -188,6 +193,15 @@ def render_clips(ranked_clips_path: str, youtube_url: str, output_dir: str = Non
             print(f"    Skipped — crop failed: {e}", flush=True)
             continue
 
+        captioned_path = out_dir / f"clip_{i+1}_final.mp4"
+        print(f"    Burning in captions...", flush=True)
+        try:
+            add_captions_to_clip(str(cropped_path), transcript_path, clip["start"], clip["end"], str(captioned_path))
+            final_output = str(captioned_path)
+        except CaptionError as e:
+            print(f"    Caption burn-in failed ({e}) — using uncaptioned version instead.", flush=True)
+            final_output = str(cropped_path)
+
         rendered.append({
             "rank": i + 1,
             "topic": clip["topic"],
@@ -196,9 +210,9 @@ def render_clips(ranked_clips_path: str, youtube_url: str, output_dir: str = Non
             "rank_score": clip.get("rank_score"),
             "hook_line": clip.get("hook_line"),
             "crop_mode": crop_mode,
-            "output_path": str(cropped_path),
+            "output_path": final_output,
         })
-        print(f"    Done: {cropped_path}\n", flush=True)
+        print(f"    Done: {final_output}\n", flush=True)
 
     if not rendered:
         raise RenderError("No clips were successfully rendered.")
@@ -212,16 +226,17 @@ def render_clips(ranked_clips_path: str, youtube_url: str, output_dir: str = Non
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python src/rendering/renderer.py <final_clips_ranked.json> <youtube_url> [top_n]")
+    if len(sys.argv) < 4:
+        print("Usage: python src/rendering/renderer.py <final_clips_ranked.json> <youtube_url> <transcript.json> [top_n]")
         sys.exit(1)
 
     ranked_path = sys.argv[1]
     url = sys.argv[2]
-    n = int(sys.argv[3]) if len(sys.argv) > 3 else 5
+    transcript_path = sys.argv[3]
+    n = int(sys.argv[4]) if len(sys.argv) > 4 else 5
 
     try:
-        result = render_clips(ranked_path, url, top_n=n)
+        result = render_clips(ranked_path, url, transcript_path, top_n=n)
         print(f"\nRendered {len(result['rendered_clips'])} clips to: {result['output_dir']}")
         for c in result["rendered_clips"]:
             print(f"  rank {c['rank']} | crop_mode={c['crop_mode']} | {c['output_path']}")

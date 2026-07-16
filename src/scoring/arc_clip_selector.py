@@ -16,8 +16,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
-MIN_CLIP_DURATION = 20.0
-MAX_CLIP_DURATION = 60.0
+MIN_CLIP_DURATION = 25.0
+MAX_CLIP_DURATION = 90.0
 
 ARC_PROMPT_TEMPLATE = """You are selecting the best short-form clip (like a YouTube Short) from ONE topic section of a longer video.
 
@@ -86,6 +86,32 @@ def _snap_to_nearest_boundary(time_value: float, segments: list, key: str) -> fl
     closest = min(segments, key=lambda s: abs(s[key] - time_value))
     return closest[key]
 
+def _extend_to_sentence_completion(end_time: float, all_segments: list, max_duration: float,
+                                    clip_start: float) -> float:
+    """
+    If the segment ending at `end_time` doesn't end on clear sentence-final
+    punctuation, and the following segment appears to continue the same
+    sentence, extend the end boundary to include it — as long as this
+    doesn't push the clip too far past the max duration.
+    """
+    sorted_segments = sorted(all_segments, key=lambda s: s["start"])
+    current_idx = next((i for i, s in enumerate(sorted_segments) if abs(s["end"] - end_time) < 0.01), None)
+    if current_idx is None or current_idx >= len(sorted_segments) - 1:
+        return end_time
+
+    current_text = sorted_segments[current_idx]["text"].strip()
+    next_text = sorted_segments[current_idx + 1]["text"].strip()
+
+    ends_cleanly = current_text.endswith((".", "?", "!"))
+    next_continues = next_text and next_text[0].islower()
+
+    candidate_end = sorted_segments[current_idx + 1]["end"]
+    would_still_fit = (candidate_end - clip_start) <= (max_duration + 15)  # allow modest overshoot for a clean payoff
+
+    if not ends_cleanly and next_continues and would_still_fit:
+        return candidate_end
+
+    return end_time
 
 def _expand_to_minimum(start: float, end: float, all_segments: list,
                         topic_start: float, topic_end: float) -> dict:
@@ -175,11 +201,17 @@ def _select_arc_for_topic(topic: dict, all_segments: list, retries: int = 2) -> 
                 raise ValueError("Resulting clip has non-positive duration after snapping.")
 
             # Enforce minimum duration by expanding using real transcript boundaries
+            # Enforce minimum duration by expanding using real transcript boundaries
             expanded = _expand_to_minimum(result["start"], result["end"], all_segments,
                                            topic["start"], topic["end"])
             result["start"] = expanded["start"]
             result["end"] = expanded["end"]
             result["extended_beyond_topic"] = expanded["extended_beyond_topic"]
+
+            # NEW: extend end boundary if it's cutting off mid-sentence
+            result["end"] = _extend_to_sentence_completion(
+                result["end"], all_segments, MAX_CLIP_DURATION, result["start"]
+            )
 
             # Cap at maximum duration if expansion overshot
             if (result["end"] - result["start"]) > MAX_CLIP_DURATION:
