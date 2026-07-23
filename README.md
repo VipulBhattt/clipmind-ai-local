@@ -1,10 +1,23 @@
 # ClipMind AI
+Python 3.11
 
-**Automated viral moment detection & short-form video generation, powered by topic-aware narrative-arc analysis.**
+MIT License
+
+CLI
+
+Whisper
+
+Groq
+
+FFmpeg
+
+**AI-powered short-form clip generation from long-form YouTube videos**
+
+Long-form podcasts and interviews often contain dozens of valuable insights, but manually finding short, engaging clips is time-consuming. ClipMind AI was built to automate that workflow by combining transcription, topic understanding, narrative analysis, computer vision, and video rendering into a single local pipeline that transforms a YouTube URL into ready-to-share vertical clips.
 
 ClipMind AI takes a long-form YouTube video (podcasts, interviews, lectures, talks) and automatically produces ready-to-post vertical Shorts — complete with active-speaker-tracking crop and burned-in captions — by understanding *what's being discussed* and *where the best hook-to-payoff moment lives* within each topic, rather than just scoring random sentences.
 
-> A fully working end-to-end pipeline, running on free-tier tools only (no paid APIs required).
+>A fully working local pipeline built using freely available tools and open-source components..
 
 ---
 
@@ -22,10 +35,62 @@ Give it a YouTube URL. It will:
 
 One command, one YouTube link in — a folder of finished, captioned, vertical Shorts out.
 
+# Example result
+Input
+
+45-minute nutrition podcast
+
+↓
+
+Output
+
+3 Shorts
+
+34 seconds
+
+41 seconds
+
+52 seconds
+
+
 ```bash
 python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --top_n 3
 ```
-
+VIDEO_ID
+    │   audio.wav
+    │   final_clips.json
+    │   final_clips_ranked.json
+    │   final_clips_v2.json
+    │   final_scored_clips.json
+    │   heuristic_scores.json
+    │   metadata.json
+    │   topics.json
+    │   transcript.json
+    │   
+    └───rendered_clips
+            clip_1_final.ass
+            clip_1_final.mp4
+            clip_1_raw.mp4
+            clip_1_raw_speaker_timeline.json
+            clip_1_vertical.mp4
+            clip_2_captioned.ass
+            clip_2_captioned.mp4
+            clip_2_final.ass
+            clip_2_final.mp4
+            clip_2_raw.mp4
+            clip_2_raw_speaker_timeline.json
+            clip_2_vertical.mp4
+            clip_2_vertical_TEST.mp4
+            clip_3_final.ass
+            clip_3_final.mp4
+            clip_3_raw.mp4
+            clip_3_raw_speaker_timeline.json
+            clip_3_vertical.mp4
+            debug_frame_22s.jpg
+            debug_frame_27s.jpg
+            debug_frame_31s.jpg
+            debug_raw_frame_6s.jpg
+            render_manifest.json
 ---
 
 ## Why this is different from "just scoring sentences"
@@ -124,7 +189,7 @@ python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --top_n 5
 
 ---
 
-## Known limitations (honest, on purpose)
+## Known limitations (honest)
 
 This is an actively developed personal project, not a finished commercial product. Current known limitations:
 
