@@ -1,21 +1,16 @@
 # ClipMind AI
-Python 3.11
-
-MIT License
-
-CLI
-
-Whisper
-
-Groq
-
-FFmpeg
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![CLI](https://img.shields.io/badge/Interface-CLI-orange)
+![Whisper](https://img.shields.io/badge/Whisper-faster--whisper-black)
+![Groq](https://img.shields.io/badge/LLM-Groq-purple)
+![FFmpeg](https://img.shields.io/badge/Video-FFmpeg-red)
 
 **AI-powered short-form clip generation from long-form YouTube videos**
 
 Long-form podcasts and interviews often contain dozens of valuable insights, but manually finding short, engaging clips is time-consuming. ClipMind AI was built to automate that workflow by combining transcription, topic understanding, narrative analysis, computer vision, and video rendering into a single local pipeline that transforms a YouTube URL into ready-to-share vertical clips.
 
-ClipMind AI takes a long-form YouTube video (podcasts, interviews, lectures, talks) and automatically produces ready-to-post vertical Shorts — complete with active-speaker-tracking crop and burned-in captions — by understanding *what's being discussed* and *where the best hook-to-payoff moment lives* within each topic, rather than just scoring random sentences.
+ClipMind AI takes a long-form YouTube video (podcasts, interviews, lectures, talks) and automatically produces ready-to-post vertical Shorts — complete with active-speaker-tracking crop and burned-in captions — by understanding *what's being discussed* and *where the best hook-to-payoff moment lives* within each topic, rather than just scoring random sentences. The pipeline is designed to run locally on consumer hardware using CPU-optimized Faster-Whisper (int8 quantization), avoiding the need for a dedicated GPU.
 
 >A fully working local pipeline built using freely available tools and open-source components..
 
@@ -55,24 +50,24 @@ Output
 ## Visuals 
 
 # Original Video over youtube
-![alt text](<assets/Screenshot 2026-07-24 102158.png>)
+![Original Video](<assets/Original.png>)
 
 ## Processing Steps 
 
 # Downloading audio+metadata and then transcribing 
-![alt text](assets/image.png)
+![Primary source collection](assets/Downloading.png)
 
 # Segmentation and Topic wise clip selection
-![alt text](<assets/Screenshot 2026-07-24 103301.png>)
+![Segmentaion clip wise](<assets/Segmentation.png>)
 
 # Ranking clips 
-![alt text](<assets/Screenshot 2026-07-24 104141.png>)
+![Clip Ranking](<assets/Ranking.png>)
 
 # Downloading Top ranked video clips, dynamic cropping by active speaker detection and caption burning
-![alt text](<assets/Screenshot 2026-07-24 105015.png>)
+![Clip Dnld, cropping and caption burning](<assets/DownloadClips.png>)
 
 # Metadata (Title, description and hashtags) generation for generated clips
-![alt text](<assets/Screenshot 2026-07-24 105303.png>)
+![MetaData Gen](<assets/MetaData.png>)
 
 
 
@@ -110,10 +105,6 @@ VIDEO_ID
             clip_3_raw.mp4
             clip_3_raw_speaker_timeline.json
             clip_3_vertical.mp4
-            debug_frame_22s.jpg
-            debug_frame_27s.jpg
-            debug_frame_31s.jpg
-            debug_raw_frame_6s.jpg
             render_manifest.json
 ---
 
