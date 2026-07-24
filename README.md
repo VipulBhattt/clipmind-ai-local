@@ -75,37 +75,39 @@ Output
 ```bash
 python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --top_n 3
 ```
-VIDEO_ID
-    │   audio.wav
-    │   final_clips.json
-    │   final_clips_ranked.json
-    │   final_clips_v2.json
-    │   final_scored_clips.json
-    │   heuristic_scores.json
-    │   metadata.json
-    │   topics.json
-    │   transcript.json
-    │   
-    └───rendered_clips
-            clip_1_final.ass
-            clip_1_final.mp4
-            clip_1_raw.mp4
-            clip_1_raw_speaker_timeline.json
-            clip_1_vertical.mp4
-            clip_2_captioned.ass
-            clip_2_captioned.mp4
-            clip_2_final.ass
-            clip_2_final.mp4
-            clip_2_raw.mp4
-            clip_2_raw_speaker_timeline.json
-            clip_2_vertical.mp4
-            clip_2_vertical_TEST.mp4
-            clip_3_final.ass
-            clip_3_final.mp4
-            clip_3_raw.mp4
-            clip_3_raw_speaker_timeline.json
-            clip_3_vertical.mp4
-            render_manifest.json
+```text
+downloads/
+└── video<id>/
+    ├── audio.wav
+    ├── final_clips.json
+    ├── final_clips_ranked.json
+    ├── final_clips_v2.json
+    ├── final_scored_clips.json
+    ├── heuristic_scores.json
+    ├── metadata.json
+    ├── topics.json
+    ├── transcript.json
+    └── rendered_clips/
+        ├── clip_1_final.ass
+        ├── clip_1_final.mp4
+        ├── clip_1_raw.mp4
+        ├── clip_1_raw_speaker_timeline.json
+        ├── clip_1_vertical.mp4
+        ├── clip_2_captioned.ass
+        ├── clip_2_captioned.mp4
+        ├── clip_2_final.ass
+        ├── clip_2_final.mp4
+        ├── clip_2_raw.mp4
+        ├── clip_2_raw_speaker_timeline.json
+        ├── clip_2_vertical.mp4
+        ├── clip_2_vertical_TEST.mp4
+        ├── clip_3_final.ass
+        ├── clip_3_final.mp4
+        ├── clip_3_raw.mp4
+        ├── clip_3_raw_speaker_timeline.json
+        ├── clip_3_vertical.mp4
+        └── render_manifest.json
+```
 ---
 
 ## Why this is different from "just scoring sentences"
