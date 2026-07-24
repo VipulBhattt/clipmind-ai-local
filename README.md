@@ -52,6 +52,30 @@ Output
 
 52 seconds
 
+## Visuals 
+
+# Original Video over youtube
+![alt text](<assets/Screenshot 2026-07-24 102158.png>)
+
+## Processing Steps 
+
+# Downloading audio+metadata and then transcribing 
+![alt text](assets/image.png)
+
+# Segmentation and Topic wise clip selection
+![alt text](<assets/Screenshot 2026-07-24 103301.png>)
+
+# Ranking clips 
+![alt text](<assets/Screenshot 2026-07-24 104141.png>)
+
+# Downloading Top ranked video clips, dynamic cropping by active speaker detection and caption burning
+![alt text](<assets/Screenshot 2026-07-24 105015.png>)
+
+# Metadata (Title, description and hashtags) generation for generated clips
+![alt text](<assets/Screenshot 2026-07-24 105303.png>)
+
+
+
 
 ```bash
 python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --top_n 3
@@ -175,6 +199,10 @@ cd code
 python -m venv venv
 venv\Scripts\activate        # Windows
 pip install -r requirements.txt
+pip install  mediapipe==0.10.9 --no-deps
+pip install protobuf==3.20.3
+
+**Note:** mediapipe and protobuf are installed as separate final steps due to a known dependency conflict between mediapipe's legacy Solutions API (which requires an older protobuf) and onnxruntime (which requires a newer one). Installing them in this specific order avoids the conflict while keeping both packages functional. See the "Known Limitations" section below for details.
 ```
 
 You'll also need:
